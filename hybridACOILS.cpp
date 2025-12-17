@@ -75,28 +75,25 @@ Graph loadGraph(const std::string &filename) {
     return G;
 }
 
-// ==========================================
-// 2. Motor de Búsqueda Local (Adaptado de ILS)
-// ==========================================
-
-
+// Local Search
 void local_search(const Graph& G, std::vector<int>& S, int max_iters) {
     int n = G.n;
     std::vector<char> inS(n, 0);
     for (int u : S) inS[u] = 1;
 
-    
+    //Comprobar conflictos de la solucion
     std::vector<int> conflicts(n, 0);
     for (int u = 0; u < n; ++u) {
         int c = 0;
         for (int v : G.adj[u]) if (inS[v]) ++c;
         conflicts[u] = c;
     }
-
+    //añadir nodos sin conflictos
     auto add = [&](int u){
         inS[u] = 1; S.push_back(u);
         for (int v : G.adj[u]) conflicts[v]++;
     };
+    //eliminar nodo de la solucion
     auto remove = [&](int u){
         inS[u] = 0;
         
@@ -168,9 +165,7 @@ void local_search(const Graph& G, std::vector<int>& S, int max_iters) {
     S = finalS;
 }
 
-// ==========================================
-// 3. Configuración y Lógica Híbrida ACO
-// ==========================================
+//Estructura de parámetros para ACO Híbrido
 
 struct HybridParams {
     int numAnts = 10;       // hormigas 
@@ -208,7 +203,7 @@ Solution runHybridACO(const Graph& G, const HybridParams& p, int timeLimitSec, i
 
         std::vector<std::vector<int>> cycleSolutions; 
 
-        
+        //FASE DE HORMIGAS
         for (int k = 0; k < p.numAnts; ++k) {
             std::vector<int> currentSol;
             std::vector<bool> forbidden(n, false);
@@ -248,7 +243,7 @@ Solution runHybridACO(const Graph& G, const HybridParams& p, int timeLimitSec, i
                 
                 currentSol.push_back(selected);
                 
-                
+                //actualizar lista de candidatos
                 forbidden[selected] = true;
                 for (int neighbor : G.adj[selected]) forbidden[neighbor] = true;
 
@@ -261,12 +256,12 @@ Solution runHybridACO(const Graph& G, const HybridParams& p, int timeLimitSec, i
                 candidates = nextCandidates;
             }
 
-            
+            //FASE ILS
             local_search(G, currentSol, p.ls_iters);
 
             cycleSolutions.push_back(currentSol);
 
-            // 3. Verificar Mejor Global
+            // Verificar Mejor Global
             if ((int)currentSol.size() > globalBest.value) {
                 globalBest.value = (int)currentSol.size();
                 globalBest.set = currentSol;
@@ -278,7 +273,7 @@ Solution runHybridACO(const Graph& G, const HybridParams& p, int timeLimitSec, i
             }
         }
 
-        
+        //evaporar y actualizar feromonas
         for (int i = 0; i < n; ++i) {
             tau[i] *= (1.0 - p.rho);
             if (tau[i] < 0.0001) tau[i] = 0.0001; 
@@ -291,7 +286,7 @@ Solution runHybridACO(const Graph& G, const HybridParams& p, int timeLimitSec, i
             }
         }
         
-        
+        //parte elitista
         if (globalBest.value > 0) {
             double deltaElite = 2.0 / (double)(G.n - globalBest.value + 1.0);
             for (int node : globalBest.set) {
@@ -308,7 +303,7 @@ Solution runHybridACO(const Graph& G, const HybridParams& p, int timeLimitSec, i
 // ==========================================
 
 int main(int argc, char** argv) {
-    if (argc < 2) { 
+    if (argc < 2) {
         std::cerr << "Uso: " << argv[0] << " [-i] <instancia> -t <segundos> [opciones...]\n";
         return 1;
     }
@@ -316,61 +311,50 @@ int main(int argc, char** argv) {
     std::string filename = "";
     double timeLimit = 10.0;
     int seed = 42;
-    
-    
     HybridParams params;
+    // Valores por defecto
     params.numAnts = 20;
     params.alpha = 1.0;
     params.beta = 2.0;
     params.rho = 0.1;
     params.ls_iters = 2000;
 
-    
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-
-        if (arg == "-i") {
-            if (i + 1 < argc) filename = argv[++i];
-        }
-        else if (arg == "-t") {
-            if (i + 1 < argc) timeLimit = std::stod(argv[++i]);
-        }
-        else if (arg == "--seed") {
-            if (i + 1 < argc) seed = std::stoi(argv[++i]);
-        }
-        else if (arg == "--ants") {
-            if (i + 1 < argc) params.numAnts = std::stoi(argv[++i]);
-        }
-        else if (arg == "--alpha") {
-            if (i + 1 < argc) params.alpha = std::stod(argv[++i]);
-        }
-        else if (arg == "--beta") {
-            if (i + 1 < argc) params.beta = std::stod(argv[++i]);
-        }
-        else if (arg == "--rho") {
-            if (i + 1 < argc) params.rho = std::stod(argv[++i]);
-        }
-        else if (arg == "--ls_iters") {
-            if (i + 1 < argc) params.ls_iters = std::stoi(argv[++i]);
-        }
-        // Soporte para nombre de archivo sin flag (legacy/posicional)
-        else if (filename.empty() && arg[0] != '-') {
-            filename = arg;
-        }
+        if (arg == "-i") { if (i + 1 < argc) filename = argv[++i]; }
+        else if (arg == "-t") { if (i + 1 < argc) timeLimit = std::stod(argv[++i]); }
+        else if (arg == "--seed") { if (i + 1 < argc) seed = std::stoi(argv[++i]); }
+        else if (arg == "--ants") { if (i + 1 < argc) params.numAnts = std::stoi(argv[++i]); }
+        else if (arg == "--alpha") { if (i + 1 < argc) params.alpha = std::stod(argv[++i]); }
+        else if (arg == "--beta") { if (i + 1 < argc) params.beta = std::stod(argv[++i]); }
+        else if (arg == "--rho") { if (i + 1 < argc) params.rho = std::stod(argv[++i]); }
+        else if (arg == "--ls_iters") { if (i + 1 < argc) params.ls_iters = std::stoi(argv[++i]); }
+        
+        else if (filename.empty() && arg[0] != '-') { filename = arg; }
     }
 
-    // Verificación final
     if (filename.empty()) {
-        std::cerr << "Error: No se especificó archivo de instancia (-i <archivo>)\n";
+        std::cerr << "Error: No se especificó archivo.\n";
         return 1;
     }
 
     try {
         Graph G = loadGraph(filename);
         
+        auto startTotal = std::chrono::high_resolution_clock::now();
+        
+        
         Solution sol = runHybridACO(G, params, timeLimit, seed);
+        
+        auto endTotal = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsedTotal = endTotal - startTotal;
 
-        std::cout << "FINAL_BEST " << sol.value << "\n";
+        
+        // Formato: FINAL_STATS: Solucion,TiempoTotal,TiempoMejor
+        std::cout << "FINAL_STATS: " 
+                  << sol.value << "," 
+                  << std::fixed << std::setprecision(4) << elapsedTotal.count() << "," 
+                  << sol.timeFound << "\n";
 
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << "\n";
