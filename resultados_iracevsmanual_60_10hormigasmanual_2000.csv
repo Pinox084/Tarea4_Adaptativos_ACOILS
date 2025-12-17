@@ -1,0 +1,5 @@
+densidad,algoritmo,sol_promedio,std_sol,tiempo_promedio,mejor_sol
+p0c0.3,IRACE,25.77,0.6155,16.5138,27
+p0c0.3,MANUAL,25.83,0.4534,15.0868,27
+p0c0.7,IRACE,9.50,0.5000,15.1322,10
+p0c0.7,MANUAL,9.67,0.4714,15.2960,10
